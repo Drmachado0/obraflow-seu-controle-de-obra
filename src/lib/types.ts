@@ -125,14 +125,14 @@ export function exportCSV(data: JsonRecord[], filename: string, columns: CsvColu
 }
 
 /** Generic date filter for arrays with a date field */
-export function filterByDateRange<T extends JsonRecord>(
+export function filterByDateRange<T>(
   items: T[],
   dateField: string,
   dataInicio: string,
   dataFim: string
 ): T[] {
   return items.filter(item => {
-    const d = item[dateField] as string | undefined;
+    const d = (item as Record<string, unknown>)[dateField] as string | undefined;
     if (!d) return true;
     if (dataInicio && d < dataInicio) return false;
     if (dataFim && d > dataFim) return false;

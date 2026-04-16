@@ -97,7 +97,7 @@ export default function DashboardPage() {
     }
 
     if (recentTransRes.data) setTransacoes(recentTransRes.data as TransacaoRow[]);
-    if (etapasRes.data) setEtapas(etapasRes.data);
+    if (etapasRes.data) setEtapas(etapasRes.data as EtapaRow[]);
 
     if (comprasRes.data) {
       const c = comprasRes.data as { valor_total: number; status_entrega: string }[];

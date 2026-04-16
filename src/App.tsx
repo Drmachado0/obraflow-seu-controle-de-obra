@@ -56,6 +56,32 @@ function AuthenticatedApp() {
   const { user, loading } = useAuth();
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!user) {
+      setNeedsOnboarding(false);
+      return;
+    }
+
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase
+        .from("obra_config")
+        .select("id")
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!cancelled) {
+            setNeedsOnboarding(!data);
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4">
@@ -69,16 +95,6 @@ function AuthenticatedApp() {
       </div>
     );
   }
-
-  // Check onboarding
-  useEffect(() => {
-    if (!user) return;
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.from("obra_config").select("id").limit(1).maybeSingle().then(({ data }) => {
-        setNeedsOnboarding(!data);
-      });
-    });
-  }, [user]);
 
   if (!user) return <LoginPage />;
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import { exportCSV, filterByDateRange, filterByCategoria, type TransacaoRow, type CompraRow, type ComissaoRow, type EtapaRow } from "@/lib/types";
+import { exportCSV, filterByDateRange, filterByCategoria, type TransacaoRow, type CompraRow, type ComissaoRow, type EtapaRow, type JsonRecord } from "@/lib/types";
 import { toast } from "sonner";
 import {
   FileText,
@@ -77,7 +77,7 @@ export default function RelatoriosPage() {
   const comissoesPage = filteredComissoes.slice(pageComissoes * PAGE_SIZE, (pageComissoes + 1) * PAGE_SIZE);
   const comissoesPages = Math.ceil(filteredComissoes.length / PAGE_SIZE);
 
-  const handleExport = (data: Record<string, unknown>[], filename: string, columns: { key: string; label: string }[]) => {
+  const handleExport = (data: JsonRecord[], filename: string, columns: { key: string; label: string }[]) => {
     exportCSV(data, filename, columns);
     toast.success(`${filename}.csv exportado`);
   };

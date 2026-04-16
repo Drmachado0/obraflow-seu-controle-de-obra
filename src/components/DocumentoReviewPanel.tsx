@@ -118,6 +118,12 @@ export default function DocumentoReviewPanel({ documento, onBack }: Props) {
   };
 
   const payload = documento.payload_normalizado as Record<string, unknown> | null;
+  const fornecedor = typeof payload?.fornecedor_ou_origem === "string" ? payload.fornecedor_ou_origem : null;
+  const valorTotal = typeof payload?.valor_total === "number" ? payload.valor_total : null;
+  const dataDocumento = typeof payload?.data_documento === "string" ? payload.data_documento : null;
+  const categoriaSugerida = typeof payload?.categoria_sugerida === "string" ? payload.categoria_sugerida : null;
+  const tipoMovimentacao = typeof payload?.tipo_movimentacao === "string" ? payload.tipo_movimentacao : null;
+  const observacoes = typeof payload?.observacoes === "string" ? payload.observacoes : null;
   const confianca = documento.confianca_extracao;
   const confiancaColor = confianca >= 70 ? "text-emerald-400" : confianca >= 40 ? "text-amber-400" : "text-red-400";
   const confiancaBg = confianca >= 70 ? "bg-emerald-500/10" : confianca >= 40 ? "bg-amber-500/10" : "bg-red-500/10";
@@ -208,24 +214,24 @@ export default function DocumentoReviewPanel({ documento, onBack }: Props) {
         <div className="glass-card p-6">
           <h3 className="text-sm font-semibold mb-3">Dados Extraídos pela IA</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {payload.fornecedor_ou_origem && (
-              <div><p className="text-xs text-muted-foreground">Fornecedor</p><p className="text-sm font-medium">{payload.fornecedor_ou_origem}</p></div>
-            )}
-            {payload.valor_total != null && (
-              <div><p className="text-xs text-muted-foreground">Valor Total</p><p className="text-sm font-medium">{formatCurrency(payload.valor_total)}</p></div>
-            )}
-            {payload.data_documento && (
-              <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{payload.data_documento}</p></div>
-            )}
-            {payload.categoria_sugerida && (
-              <div><p className="text-xs text-muted-foreground">Categoria</p><p className="text-sm font-medium">{payload.categoria_sugerida}</p></div>
-            )}
-            {payload.tipo_movimentacao && (
-              <div><p className="text-xs text-muted-foreground">Tipo</p><p className="text-sm font-medium capitalize">{payload.tipo_movimentacao}</p></div>
-            )}
-            {payload.observacoes && (
-              <div className="col-span-full"><p className="text-xs text-muted-foreground">Observações</p><p className="text-sm">{payload.observacoes}</p></div>
-            )}
+            {fornecedor ? (
+              <div><p className="text-xs text-muted-foreground">Fornecedor</p><p className="text-sm font-medium">{fornecedor}</p></div>
+            ) : null}
+            {valorTotal != null ? (
+              <div><p className="text-xs text-muted-foreground">Valor Total</p><p className="text-sm font-medium">{formatCurrency(valorTotal)}</p></div>
+            ) : null}
+            {dataDocumento ? (
+              <div><p className="text-xs text-muted-foreground">Data</p><p className="text-sm font-medium">{dataDocumento}</p></div>
+            ) : null}
+            {categoriaSugerida ? (
+              <div><p className="text-xs text-muted-foreground">Categoria</p><p className="text-sm font-medium">{categoriaSugerida}</p></div>
+            ) : null}
+            {tipoMovimentacao ? (
+              <div><p className="text-xs text-muted-foreground">Tipo</p><p className="text-sm font-medium capitalize">{tipoMovimentacao}</p></div>
+            ) : null}
+            {observacoes ? (
+              <div className="col-span-full"><p className="text-xs text-muted-foreground">Observações</p><p className="text-sm">{observacoes}</p></div>
+            ) : null}
           </div>
         </div>
       )}

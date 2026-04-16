@@ -28,10 +28,11 @@ const TIPO_DOC_CONFIG: Record<string, { label: string; icon: IconComponent; colo
   outro: { label: "Outros", icon: File, color: "text-muted-foreground", bg: "bg-muted/30" },
 };
 
-function getPayloadField(doc: DocumentoProcessado, field: string): unknown {
+function getPayloadField(doc: DocumentoProcessado, field: string): string {
   const p = doc.payload_normalizado;
-  if (!p || typeof p !== "object" || Array.isArray(p)) return null;
-  return (p as Record<string, unknown>)[field] ?? null;
+  if (!p || typeof p !== "object" || Array.isArray(p)) return "";
+  const value = (p as Record<string, unknown>)[field];
+  return value == null ? "" : String(value);
 }
 
 function DocTypeBadge({ tipo }: { tipo: string }) {
@@ -63,7 +64,7 @@ function DocumentRow({ doc, onSelect, onReprocess }: {
           <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <div className="min-w-0">
             <span className="truncate block max-w-[180px] text-sm" title={doc.nome_arquivo}>{doc.nome_arquivo}</span>
-            {descricao && <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={descricao}>{descricao}</p>}
+            {descricao ? <p className="text-xs text-muted-foreground truncate max-w-[180px]" title={descricao}>{descricao}</p> : null}
           </div>
         </div>
       </td>
@@ -193,8 +194,8 @@ export default function PastaMonitorPage() {
       if (filterTipo !== "todos" && (d.tipo_documento || "outro") !== filterTipo) return false;
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        const fornecedor = (getPayloadField(d, "fornecedor_ou_origem") || "").toLowerCase();
-        const descricao = (getPayloadField(d, "descricao") || "").toLowerCase();
+        const fornecedor = getPayloadField(d, "fornecedor_ou_origem").toLowerCase();
+        const descricao = getPayloadField(d, "descricao").toLowerCase();
         if (!d.nome_arquivo.toLowerCase().includes(term) && !fornecedor.includes(term) && !descricao.includes(term)) return false;
       }
       return true;
@@ -215,8 +216,8 @@ export default function PastaMonitorPage() {
     // Sort each group by date desc
     for (const key of Object.keys(groups)) {
       groups[key].sort((a, b) => {
-        const dateA = getPayloadField(a, "data_documento") || a.created_at;
-        const dateB = getPayloadField(b, "data_documento") || b.created_at;
+          const dateA = getPayloadField(a, "data_documento") || a.created_at;
+          const dateB = getPayloadField(b, "data_documento") || b.created_at;
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
     }
