@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import OrigemBadge from "@/components/OrigemBadge";
 import TransacaoDetailDrawer, { type TransacaoFull } from "@/components/TransacaoDetailDrawer";
 import type { EtapaRow } from "@/lib/types";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from "recharts";
 
 interface TransacaoRow {
   id: string;
@@ -275,28 +279,78 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Gastos por Categoria + Etapas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Top Categories */}
-        {gastosPorCategoria.length > 0 && (
-          <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: "950ms" }}>
-            <h2 className="text-sm font-semibold mb-4">Top Categorias de Gasto</h2>
-            <div className="space-y-3">
-              {gastosPorCategoria.map((cat, i) => {
-                const pct = totalGasto > 0 ? (cat.total / totalGasto) * 100 : 0;
-                return (
-                  <div key={cat.categoria}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium">{cat.categoria || "Sem categoria"}</span>
-                      <span className="text-xs text-muted-foreground">{formatCurrency(cat.total)} ({formatPercent(pct)})</span>
-                    </div>
-                    <Progress value={pct} className="h-2" />
-                  </div>
-                );
-              })}
+      {/* Charts Row */}
+      {(gastosPorCategoria.length > 0 || orcamentoTotal > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Donut: Orcamento */}
+          {orcamentoTotal > 0 && (
+            <div className="glass-card p-5 animate-fade-in-up" style={{ animationDelay: "900ms" }}>
+              <h2 className="text-sm font-semibold mb-2">Orcamento</h2>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Gasto", value: Math.min(totalGasto, orcamentoTotal) },
+                        { name: "Restante", value: Math.max(orcamentoTotal - totalGasto, 0) },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      <Cell fill="hsl(0 72% 51%)" />
+                      <Cell fill="hsl(165 82% 51%)" />
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "hsl(222 47% 9%)", border: "1px solid hsl(222 30% 16%)", borderRadius: "8px", fontSize: "12px" }}
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex justify-center gap-4 text-[10px]">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-destructive" />Gasto</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary" />Restante</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Bar Chart: Top Categorias */}
+          {gastosPorCategoria.length > 0 && (
+            <div className="glass-card p-5 lg:col-span-2 animate-fade-in-up" style={{ animationDelay: "950ms" }}>
+              <h2 className="text-sm font-semibold mb-2">Gastos por Categoria</h2>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={gastosPorCategoria} layout="vertical" margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 16%)" horizontal={false} />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="categoria"
+                      width={100}
+                      tick={{ fontSize: 11, fill: "hsl(215 20% 55%)" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(222 47% 9%)", border: "1px solid hsl(222 30% 16%)", borderRadius: "8px", fontSize: "12px" }}
+                      formatter={(value: number) => formatCurrency(value)}
+                    />
+                    <Bar dataKey="total" fill="hsl(165 82% 51%)" radius={[0, 4, 4, 0]} barSize={20} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Etapas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{""}
 
         {/* Etapas */}
         {etapas.length > 0 && (

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,7 +7,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { Building2 } from "lucide-react";
 import LoginPage from "@/pages/LoginPage";
+import OnboardingWizard from "@/components/OnboardingWizard";
 import NotFound from "@/pages/NotFound";
 
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
@@ -26,28 +28,67 @@ const ContasBancariasPage = lazy(() => import("@/pages/ContasBancariasPage"));
 const ConfiguracoesPage = lazy(() => import("@/pages/ConfiguracoesPage"));
 const NotasFiscaisPage = lazy(() => import("@/pages/NotasFiscaisPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 2, // 2 min cache
+      gcTime: 1000 * 60 * 10, // 10 min garbage collection
+      retry: 2,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center h-64">
+    <div className="flex flex-col items-center justify-center h-64 gap-3">
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground animate-pulse">Carregando...</p>
     </div>
   );
 }
 
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center animate-pulse">
+          <Building2 className="w-6 h-6 text-primary" />
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <h1 className="text-lg font-bold tracking-tight">ObraFlow</h1>
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
       </div>
     );
   }
 
+  // Check onboarding
+  useEffect(() => {
+    if (!user) return;
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase.from("obra_config").select("id").limit(1).maybeSingle().then(({ data }) => {
+        setNeedsOnboarding(!data);
+      });
+    });
+  }, [user]);
+
   if (!user) return <LoginPage />;
+
+  if (needsOnboarding === true) {
+    return <OnboardingWizard onComplete={() => setNeedsOnboarding(false)} />;
+  }
+
+  if (needsOnboarding === null) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <AppLayout>
