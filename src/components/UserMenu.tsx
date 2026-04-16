@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
 import { LogOut, User, Shield, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import type { AppRole } from "@/hooks/useUserRole";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -19,9 +17,13 @@ const ROLE_COLORS: Record<string, string> = {
   visualizador: "bg-muted text-muted-foreground",
 };
 
-export default function UserMenu() {
-  const { user } = useAuth();
-  const { role } = useUserRole();
+interface UserMenuProps {
+  email?: string | null;
+  role: AppRole | null;
+  onLogout: () => Promise<void>;
+}
+
+export default function UserMenu({ email, role, onLogout }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -34,11 +36,11 @@ export default function UserMenu() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await onLogout();
     toast.success("Sessão encerrada");
   };
 
-  const initial = user?.email?.charAt(0).toUpperCase() || "U";
+  const initial = email?.charAt(0).toUpperCase() || "U";
 
   return (
     <div ref={ref} className="relative">
@@ -55,7 +57,7 @@ export default function UserMenu() {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-64 glass-card p-2 z-50 animate-slide-in">
           <div className="px-3 py-2 border-b border-border/50 mb-1">
-            <p className="text-sm font-medium truncate">{user?.email}</p>
+            <p className="text-sm font-medium truncate">{email}</p>
             {role && (
               <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[10px] font-medium ${ROLE_COLORS[role] || ""}`}>
                 <Shield className="w-3 h-3" />
