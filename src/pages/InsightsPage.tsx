@@ -45,7 +45,7 @@ export default function InsightsPage() {
     if (configRes.data) setOrcamento(Number(configRes.data.orcamento_total) || 0);
     if (transRes.data) setTransacoes(transRes.data as any);
     if (etapasRes.data) setEtapas(etapasRes.data as any);
-    if (comRes.data) setComissoes(comRes.data);
+    if (comRes.data) setComissoes(comRes.data as any);
     setLoading(false);
   }, []);
 
