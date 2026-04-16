@@ -43,8 +43,8 @@ export default function InsightsPage() {
       supabase.from("obra_comissao_pagamentos").select("valor, pago").is("deleted_at", null).eq("pago", false),
     ]);
     if (configRes.data) setOrcamento(Number(configRes.data.orcamento_total) || 0);
-    if (transRes.data) setTransacoes(transRes.data);
-    if (etapasRes.data) setEtapas(etapasRes.data);
+    if (transRes.data) setTransacoes(transRes.data as any);
+    if (etapasRes.data) setEtapas(etapasRes.data as any);
     if (comRes.data) setComissoes(comRes.data);
     setLoading(false);
   }, []);

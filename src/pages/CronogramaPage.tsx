@@ -145,11 +145,11 @@ export default function CronogramaPage() {
     };
 
     if (editId) {
-      const { error } = await supabase.from("obra_cronograma").update(payload).eq("id", editId);
+      const { error } = await supabase.from("obra_cronograma").update(payload as any).eq("id", editId);
       if (error) toast.error("Erro ao atualizar"); else toast.success("Etapa atualizada");
     } else {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from("obra_cronograma").insert({ ...payload, user_id: user!.id });
+      const { error } = await supabase.from("obra_cronograma").insert({ ...payload, user_id: user!.id } as any);
       if (error) toast.error("Erro ao criar"); else toast.success("Etapa criada");
     }
     setSaving(false);

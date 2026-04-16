@@ -298,9 +298,9 @@ export function useConciliacao() {
       await supabase.from("obra_eventos_conciliacao").insert({
         user_id: user.id,
         conciliacao_id: existing.id,
-        acao: "conciliacao_manual",
-        detalhes: { movimentacao_id: movId, transacao_id: txId },
-      });
+        tipo_evento: "conciliacao_manual",
+        detalhes: JSON.stringify({ movimentacao_id: movId, transacao_id: txId }),
+      } as any);
     } else {
       const { data } = await supabase.from("obra_conciliacoes_bancarias").insert({
         user_id: user.id,
@@ -316,9 +316,9 @@ export function useConciliacao() {
         await supabase.from("obra_eventos_conciliacao").insert({
           user_id: user.id,
           conciliacao_id: data.id,
-          acao: "conciliacao_manual",
-          detalhes: { movimentacao_id: movId, transacao_id: txId },
-        });
+          tipo_evento: "conciliacao_manual",
+          detalhes: JSON.stringify({ movimentacao_id: movId, transacao_id: txId }),
+        } as any);
       }
     }
     await supabase.from("obra_transacoes_fluxo").update({ conciliado: true, conciliado_em: new Date().toISOString() }).eq("id", txId);
@@ -343,9 +343,9 @@ export function useConciliacao() {
     await supabase.from("obra_eventos_conciliacao").insert({
       user_id: user.id,
       conciliacao_id: concId,
-      acao: "desfazer_conciliacao",
-      detalhes: { motivo },
-    });
+      tipo_evento: "desfazer_conciliacao",
+      detalhes: JSON.stringify({ motivo }),
+    } as any);
     toast.success("Conciliação desfeita");
     await fetchAll();
   }, [user, conciliacoes, fetchAll]);
@@ -360,9 +360,9 @@ export function useConciliacao() {
     await supabase.from("obra_eventos_conciliacao").insert({
       user_id: user.id,
       conciliacao_id: concId,
-      acao: "marcar_divergente",
-      detalhes: { observacoes: obs },
-    });
+      tipo_evento: "marcar_divergente",
+      detalhes: JSON.stringify({ observacoes: obs }),
+    } as any);
     toast.success("Marcado como divergente");
     await fetchAll();
   }, [user, fetchAll]);
