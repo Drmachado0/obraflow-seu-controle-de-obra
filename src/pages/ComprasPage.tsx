@@ -73,8 +73,16 @@ export default function ComprasPage() {
     if (data) {
       setCompras(data.map((c) => ({
         ...c,
+        fornecedor: c.fornecedor || "",
+        descricao: c.descricao || "",
+        categoria: c.categoria || "",
+        status_entrega: c.status_entrega || "",
+        forma_pagamento: c.forma_pagamento || "",
+        numero_parcelas: c.numero_parcelas || 1,
+        observacoes: c.observacoes || "",
+        nf_vinculada: c.nf_vinculada || "",
         parcelas: parseParcelas(c.parcelas),
-        tipo_compra: getCompraType(c),
+        tipo_compra: getCompraType(c as any),
       })));
     }
     setLoading(false);

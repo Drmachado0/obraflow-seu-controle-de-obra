@@ -78,13 +78,14 @@ export default function ConfiguracoesPage() {
       .maybeSingle();
 
     if (data) {
+      const d = data as any;
       setObraConfigId(data.id);
       setObraConfig({
         id: data.id,
         nome_obra: data.nome_obra || "",
-        endereco: data.endereco || "",
+        endereco: d.endereco || "",
         responsavel: data.responsavel || "",
-        contato_responsavel: data.contato_responsavel || "",
+        contato_responsavel: d.contato_responsavel || "",
         area_construida: Number(data.area_construida) || 0,
         orcamento_total: Number(data.orcamento_total) || 0,
         data_inicio: data.data_inicio || "",
@@ -114,12 +115,12 @@ export default function ConfiguracoesPage() {
       if (obraConfigId) {
         ({ error } = await supabase
           .from("obra_config")
-          .update(payload)
+          .update(payload as any)
           .eq("id", obraConfigId));
       } else {
         ({ error } = await supabase
           .from("obra_config")
-          .insert(payload));
+          .insert(payload as any));
       }
 
       if (error) throw error;
@@ -133,13 +134,12 @@ export default function ConfiguracoesPage() {
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
-    const { data: roles } = await supabase
+    const { data: roles } = await (supabase as any)
       .from("user_roles")
       .select("user_id, role");
 
     if (roles) {
-      // Fetch emails for user IDs
-      const userList: UserWithRole[] = roles.map((r: { user_id: string; role: string }) => ({
+      const userList: UserWithRole[] = (roles as any[]).map((r: { user_id: string; role: string }) => ({
         id: r.user_id,
         email: r.user_id === user?.id ? (user?.email || r.user_id) : r.user_id,
         role: r.role,
@@ -150,7 +150,7 @@ export default function ConfiguracoesPage() {
   };
 
   const updateRole = async (userId: string, newRole: string) => {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("user_roles")
       .update({ role: newRole } as any)
       .eq("user_id", userId);

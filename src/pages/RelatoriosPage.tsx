@@ -47,7 +47,7 @@ export default function RelatoriosPage() {
     if (transRes.data) setTransacoes(transRes.data as TransacaoRow[]);
     if (comprasRes.data) setCompras(comprasRes.data as CompraRow[]);
     if (comRes.data) setComissoes(comRes.data as ComissaoRow[]);
-    if (etapasRes.data) setEtapas(etapasRes.data as EtapaRow[]);
+    if (etapasRes.data) setEtapas(etapasRes.data as unknown as EtapaRow[]);
     setLoading(false);
   }, []);
 

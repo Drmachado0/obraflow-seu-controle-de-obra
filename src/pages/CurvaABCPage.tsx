@@ -66,7 +66,7 @@ export default function CurvaABCPage() {
       .select("tipo, valor, categoria, descricao")
       .eq("tipo", "Saída")
       .is("deleted_at", null);
-    if (data) setTransacoes(data);
+    if (data) setTransacoes(data.map(d => ({ ...d, descricao: d.descricao || "" })));
     setLoading(false);
   }, []);
 
