@@ -40,6 +40,9 @@ export default function LeitorIAPage() {
     categoria: (ai.categoria_sugerida as string) ?? "Outro",
   });
 
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
   const processarDocumento = async () => {
     if (!hasInput || !user) return;
     setLoading(true);
@@ -70,7 +73,7 @@ export default function LeitorIAPage() {
           .eq("id", docId)
           .single();
 
-        if (docData?.payload_normalizado) {
+        if (isRecord(docData?.payload_normalizado)) {
           setDados(mapAiResponse(docData.payload_normalizado));
           setEditMode(true);
           if (docData.status_processamento === "revisao") {

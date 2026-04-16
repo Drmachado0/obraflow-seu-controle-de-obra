@@ -204,7 +204,7 @@ export function useDocumentos() {
       await supabase.from("obra_documentos_processados").update({
         status_processamento: "erro",
         motivo_erro: msg || "Erro na IA Claude",
-      } as Record<string, unknown>).eq("id", docId);
+      } as any).eq("id", docId);
       await registrarEvento(docId, "ia_extracao", "erro", msg || "Erro desconhecido");
       toast.error("Erro no processamento IA");
     }
@@ -214,14 +214,17 @@ export function useDocumentos() {
   };
 
   const checkContentDuplicates = async (docId: string, aiData: Record<string, unknown>, userId: string) => {
-    if (!aiData.valor_total || !aiData.data_documento) return;
+    const valorTotal = typeof aiData.valor_total === "number" ? aiData.valor_total : null;
+    const dataDocumento = typeof aiData.data_documento === "string" ? aiData.data_documento : null;
+
+    if (valorTotal == null || !dataDocumento) return;
 
     const { data: similar } = await supabase
       .from("obra_transacoes_fluxo")
       .select("id, valor, data, descricao")
       .eq("user_id", userId)
-      .eq("valor", aiData.valor_total)
-      .eq("data", aiData.data_documento)
+      .eq("valor", valorTotal)
+      .eq("data", dataDocumento)
       .is("deleted_at", null)
       .limit(5);
 
@@ -261,7 +264,7 @@ export function useDocumentos() {
       toast.success("Reprocessamento concluído");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";
-      await supabase.from("obra_documentos_processados").update({ status_processamento: "erro", motivo_erro: msg } as Record<string, unknown>).eq("id", docId);
+      await supabase.from("obra_documentos_processados").update({ status_processamento: "erro", motivo_erro: msg } as any).eq("id", docId);
       await registrarEvento(docId, "reprocessamento", "erro", msg);
       toast.error("Erro no reprocessamento");
     }

@@ -41,7 +41,7 @@ export default function OnboardingWizard({ onComplete }: Props) {
       data_inicio: form.data_inicio || null,
       data_termino: form.data_termino || null,
       responsavel: form.responsavel || "",
-    });
+    } as any);
     setSaving(false);
     if (error) {
       toast.error("Erro ao salvar: " + error.message);
