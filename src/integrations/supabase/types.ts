@@ -1911,6 +1911,30 @@ export type Database = {
         }
         Relationships: []
       }
+      obra_notification_preferences: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       obra_orcamentos: {
         Row: {
           anexo_id: string
@@ -2085,6 +2109,39 @@ export type Database = {
           },
         ]
       }
+      obra_transacao_anexos: {
+        Row: {
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          id: string
+          transaction_id: string
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          file_name: string
+          file_path: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          transaction_id: string
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          transaction_id?: string
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       obra_transacoes_fluxo: {
         Row: {
           categoria: string
@@ -2104,8 +2161,13 @@ export type Database = {
           origem_id: string | null
           origem_tipo: string | null
           recorrencia: string
+          recorrencia_ativa: boolean
           recorrencia_fim: string | null
+          recorrencia_frequencia: string | null
           recorrencia_grupo_id: string | null
+          recorrencia_mae: boolean
+          recorrencia_max_ocorrencias: number | null
+          recorrencia_ocorrencias_criadas: number
           referencia: string
           tipo: string
           updated_at: string
@@ -2130,8 +2192,13 @@ export type Database = {
           origem_id?: string | null
           origem_tipo?: string | null
           recorrencia?: string
+          recorrencia_ativa?: boolean
           recorrencia_fim?: string | null
+          recorrencia_frequencia?: string | null
           recorrencia_grupo_id?: string | null
+          recorrencia_mae?: boolean
+          recorrencia_max_ocorrencias?: number | null
+          recorrencia_ocorrencias_criadas?: number
           referencia?: string
           tipo?: string
           updated_at?: string
@@ -2156,8 +2223,13 @@ export type Database = {
           origem_id?: string | null
           origem_tipo?: string | null
           recorrencia?: string
+          recorrencia_ativa?: boolean
           recorrencia_fim?: string | null
+          recorrencia_frequencia?: string | null
           recorrencia_grupo_id?: string | null
+          recorrencia_mae?: boolean
+          recorrencia_max_ocorrencias?: number | null
+          recorrencia_ocorrencias_criadas?: number
           referencia?: string
           tipo?: string
           updated_at?: string
