@@ -27,6 +27,10 @@ const ConciliacaoPage = lazy(() => import("@/pages/ConciliacaoPage"));
 const ContasBancariasPage = lazy(() => import("@/pages/ContasBancariasPage"));
 const ConfiguracoesPage = lazy(() => import("@/pages/ConfiguracoesPage"));
 const NotasFiscaisPage = lazy(() => import("@/pages/NotasFiscaisPage"));
+const DiarioObraPage = lazy(() => import("@/pages/DiarioObraPage"));
+const MedicaoObraPage = lazy(() => import("@/pages/MedicaoObraPage"));
+const EquipePage = lazy(() => import("@/pages/EquipePage"));
+const CurvaABCPage = lazy(() => import("@/pages/CurvaABCPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -102,6 +106,10 @@ function AuthenticatedApp() {
           <Route path="/comissao" element={<ComissaoPage />} />
           <Route path="/auditoria" element={<AuditoriaPage />} />
           <Route path="/cronograma" element={<CronogramaPage />} />
+          <Route path="/diario" element={<DiarioObraPage />} />
+          <Route path="/medicao" element={<MedicaoObraPage />} />
+          <Route path="/equipe" element={<EquipePage />} />
+          <Route path="/curva-abc" element={<CurvaABCPage />} />
           <Route path="/previsao" element={<PrevisaoPage />} />
           <Route path="/insights" element={<InsightsPage />} />
           <Route path="/relatorios" element={<RelatoriosPage />} />

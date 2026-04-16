@@ -4,6 +4,7 @@ import {
   LayoutDashboard, ArrowLeftRight, ShoppingCart, FileText, Percent,
   Menu, X, Building2, History, Calendar, TrendingUp, Lightbulb,
   BarChart3, FolderSync, Landmark, ChevronRight, Wallet, Settings,
+  ClipboardList, Ruler, Users, PieChart,
 } from "lucide-react";
 import UserMenu from "@/components/UserMenu";
 import NotificationBell from "@/components/NotificationBell";
@@ -19,6 +20,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/cronograma", label: "Cronograma", icon: Calendar },
+  { path: "/diario", label: "Diario de Obra", icon: ClipboardList },
+  { path: "/medicao", label: "Medicao", icon: Ruler },
+  { path: "/equipe", label: "Equipe", icon: Users },
   { path: "/fluxo", label: "Fluxo de Caixa", icon: ArrowLeftRight, allowedRoles: ["admin", "financeiro"] },
   { path: "/contas", label: "Contas", icon: Wallet, allowedRoles: ["admin", "financeiro"] },
   { path: "/compras", label: "Compras", icon: ShoppingCart, allowedRoles: ["admin", "financeiro"] },
@@ -29,6 +33,7 @@ const navItems: NavItem[] = [
   { path: "/pasta-sync", label: "Pasta Sync", icon: FolderSync, allowedRoles: ["admin", "financeiro"] },
   { path: "/conciliacao", label: "Conciliação", icon: Landmark, allowedRoles: ["admin", "financeiro"] },
   { path: "/comissao", label: "Comissão", icon: Percent, allowedRoles: ["admin", "construtor"] },
+  { path: "/curva-abc", label: "Curva ABC", icon: PieChart, allowedRoles: ["admin", "financeiro"] },
   { path: "/relatorios", label: "Relatórios", icon: BarChart3, allowedRoles: ["admin", "financeiro"] },
   { path: "/auditoria", label: "Auditoria", icon: History, allowedRoles: ["admin"] },
   { path: "/configuracoes", label: "Configurações", icon: Settings, allowedRoles: ["admin"] },
@@ -59,8 +64,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Building2 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-foreground tracking-wide">OTOVISION</h1>
-            <p className="text-[10px] text-muted-foreground">Gestão de Obra</p>
+            <h1 className="text-sm font-bold text-foreground tracking-wide">ObraFlow</h1>
+            <p className="text-[10px] text-muted-foreground">Gestao Inteligente</p>
           </div>
         </div>
 
@@ -104,12 +109,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
             <div className="flex items-center gap-2 lg:hidden">
               <Building2 className="w-5 h-5 text-primary" />
-              <span className="font-bold text-sm">OTOVISION</span>
+              <span className="font-bold text-sm">ObraFlow</span>
             </div>
             {/* Breadcrumb */}
             {currentPage && (
               <div className="hidden lg:flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span>OTOVISION</span>
+                <span>ObraFlow</span>
                 <ChevronRight className="w-3 h-3" />
                 <span className="text-foreground font-medium">{currentPage}</span>
               </div>
