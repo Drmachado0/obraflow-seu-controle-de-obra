@@ -1,17 +1,19 @@
 
 
-# Corrigir acesso externo — Variáveis Supabase ausentes no deploy
+## Plan: Fix Negative Value Validation Feedback (MEL-002)
 
-## Problema
-O site publicado em `construble-sync.lovable.app` mostra tela em branco porque o Supabase client falha com **"supabaseUrl is required"**. As variáveis `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` existem apenas no `.env` local (usado no dev preview), mas não foram adicionadas como Secrets do projeto Lovable — por isso o build publicado não as tem.
+### Root Cause
+The `<Input>` has `min="0.01"` which triggers native browser validation for negative values. This silently blocks form submission **before** the custom `handleSubmit` runs — so `setValorError` never executes and no visual feedback appears.
 
-## Solução
-1. **Adicionar os dois secrets** ao projeto via ferramenta `add_secret`:
-   - `VITE_SUPABASE_URL` = `https://ebyruchdswmkuynthiqi.supabase.co`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` = (a anon key do seu projeto Supabase)
+### Fix
+In `src/pages/FluxoCaixaPage.tsx` line 311:
+- Remove the `min="0.01"` attribute from the number input
+- The custom JS validation (`numVal <= 0`) already handles zero and negative values correctly with proper visual feedback
 
-2. **Republicar** o projeto clicando em "Update" no diálogo de Publish para que o build use as novas variáveis.
+### Files
+| File | Change |
+|------|--------|
+| `src/pages/FluxoCaixaPage.tsx` | Remove `min="0.01"` from the Valor input (line 311) |
 
-## Observação
-Os valores dessas variáveis estão no arquivo `.env` atual do projeto. Vou lê-lo e adicioná-los como secrets automaticamente na implementação.
+One-line change. No other behavior affected.
 
