@@ -9,6 +9,8 @@ import {
 import UserMenu from "@/components/UserMenu";
 import NotificationBell from "@/components/NotificationBell";
 import { useUserRole, type AppRole } from "@/hooks/useUserRole";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NavItem {
   path: string;
@@ -47,7 +49,12 @@ function getPageLabel(pathname: string): string {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuth();
   const { role } = useUserRole();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const visibleItems = navItems.filter(
     (item) => !item.allowedRoles || (role && item.allowedRoles.includes(role))
@@ -122,7 +129,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-1">
             <NotificationBell />
-            <UserMenu />
+            <UserMenu email={user?.email} role={role} onLogout={handleLogout} />
           </div>
         </header>
 
