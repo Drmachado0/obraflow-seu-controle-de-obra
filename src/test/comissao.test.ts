@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildComissaoPendente, deveGerarComissao, registrarTransacaoComComissao } from "@/lib/comissao";
+import { buildComissaoPendente, deveGerarComissao, ehTransacaoDuplicada, registrarTransacaoComComissao } from "@/lib/comissao";
 
 describe("buildComissaoPendente", () => {
   it("cria comissão pendente de 8% vinculada a uma saída da obra", () => {
@@ -51,16 +51,58 @@ describe("deveGerarComissao", () => {
   });
 });
 
+describe("ehTransacaoDuplicada", () => {
+  it("identifica duplicidade mesmo com acento, espaços e diferença de um centavo", () => {
+    expect(ehTransacaoDuplicada({
+      user_id: "user-1",
+      tipo: "Saída",
+      valor: 1833.21,
+      data: "2026-04-25",
+      categoria: "Material",
+      descricao: "Venda   de materiais para construção",
+    }, {
+      user_id: "user-1",
+      tipo: "Saída",
+      valor: 1833.22,
+      data: "2026-04-25",
+      categoria: "material",
+      descricao: " venda de materiais para construcao ",
+    })).toBe(true);
+  });
+
+  it("não considera duplicada quando data ou descrição são diferentes", () => {
+    const base = {
+      user_id: "user-1",
+      tipo: "Saída",
+      valor: 100,
+      data: "2026-04-25",
+      categoria: "TI",
+      descricao: "JETZ INTERNET",
+    };
+
+    expect(ehTransacaoDuplicada(base, { ...base, data: "2026-04-26" })).toBe(false);
+    expect(ehTransacaoDuplicada(base, { ...base, descricao: "Energia elétrica" })).toBe(false);
+  });
+});
+
 describe("registrarTransacaoComComissao", () => {
-  function mockSupabase() {
-    const calls: Array<{ table: string; payload: unknown }> = [];
+  function mockSupabase(duplicateRows: unknown[] = []) {
+    const calls: Array<{ table: string; payload?: unknown; op: "insert" | "select" }> = [];
     return {
       calls,
       supabase: {
         from(table: string) {
           return {
+            select() {
+              calls.push({ table, op: "select" });
+              return {
+                eq() { return this; },
+                is() { return this; },
+                limit: async () => ({ data: table === "obra_transacoes_fluxo" ? duplicateRows : [], error: null }),
+              };
+            },
             insert(payload: unknown) {
-              calls.push({ table, payload });
+              calls.push({ table, payload, op: "insert" });
               if (table === "obra_transacoes_fluxo") {
                 return {
                   select() {
@@ -97,7 +139,7 @@ describe("registrarTransacaoComComissao", () => {
 
     expect(result.transacao).toEqual({ id: "tx-1" });
     expect(result.comissao?.valor).toBe(40);
-    expect(calls.map(c => c.table)).toEqual(["obra_transacoes_fluxo", "obra_comissao_pagamentos"]);
+    expect(calls.filter(c => c.op === "insert").map(c => c.table)).toEqual(["obra_transacoes_fluxo", "obra_comissao_pagamentos"]);
   });
 
   it("não cria comissão para entrada", async () => {
@@ -115,7 +157,7 @@ describe("registrarTransacaoComComissao", () => {
 
     expect(result.transacao).toEqual({ id: "tx-1" });
     expect(result.comissao).toBeNull();
-    expect(calls.map(c => c.table)).toEqual(["obra_transacoes_fluxo"]);
+    expect(calls.filter(c => c.op === "insert").map(c => c.table)).toEqual(["obra_transacoes_fluxo"]);
   });
 
   it("mantém a saída nos gastos sem criar comissão quando o usuário excluir", async () => {
@@ -135,6 +177,36 @@ describe("registrarTransacaoComComissao", () => {
 
     expect(result.transacao).toEqual({ id: "tx-1" });
     expect(result.comissao).toBeNull();
-    expect(calls.map(c => c.table)).toEqual(["obra_transacoes_fluxo"]);
+    expect(calls.filter(c => c.op === "insert").map(c => c.table)).toEqual(["obra_transacoes_fluxo"]);
+  });
+
+  it("bloqueia inserção quando já existe saída ativa igual ou com diferença de centavo", async () => {
+    const { supabase, calls } = mockSupabase([{
+      id: "tx-existente",
+      user_id: "user-1",
+      tipo: "Saída",
+      valor: 1228.92,
+      data: "2026-04-14",
+      categoria: "Material",
+      descricao: "Orçamento de materiais elétricos",
+    }]);
+
+    const result = await registrarTransacaoComComissao({
+      supabase,
+      transacao: {
+        user_id: "user-1",
+        tipo: "Saída",
+        valor: 1228.91,
+        data: "2026-04-14",
+        categoria: "material",
+        descricao: "orcamento de materiais eletricos",
+      },
+    });
+
+    expect(result.transacao).toEqual({ id: "tx-existente" });
+    expect(result.transacaoDuplicada).toBe(true);
+    expect(result.transacaoError).toBeNull();
+    expect(result.comissao).toBeNull();
+    expect(calls.filter(c => c.op === "insert")).toEqual([]);
   });
 });

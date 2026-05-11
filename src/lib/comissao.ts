@@ -45,6 +45,17 @@ type SupabaseInsertResult = PromiseLike<{ error: unknown | null }> & {
 
 type SupabaseTable = {
   insert: (payload: unknown) => SupabaseInsertResult;
+  select: (columns: string) => {
+    eq: (column: string, value: unknown) => {
+      eq: (column: string, value: unknown) => {
+        eq: (column: string, value: unknown) => {
+          is: (column: string, value: unknown) => {
+            limit: (count: number) => Promise<{ data: unknown[] | null; error: unknown | null }>;
+          };
+        };
+      };
+    };
+  };
 };
 
 export interface RegistrarTransacaoComComissaoInput {
@@ -62,10 +73,32 @@ export interface RegistrarTransacaoComComissaoResult {
   comissao: ComissaoPendenteInsert | null;
   transacaoError: unknown | null;
   comissaoError: unknown | null;
+  transacaoDuplicada?: boolean;
 }
 
 function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function normalizarTextoFinanceiro(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function ehTransacaoDuplicada(
+  nova: Pick<TransacaoComComissaoInsert, "user_id" | "tipo" | "valor" | "data" | "categoria" | "descricao">,
+  existente: Pick<TransacaoComComissaoInsert, "user_id" | "tipo" | "valor" | "data" | "categoria" | "descricao">,
+): boolean {
+  return nova.user_id === existente.user_id
+    && nova.tipo === existente.tipo
+    && nova.data === existente.data
+    && Math.abs(roundCurrency(Number(nova.valor)) - roundCurrency(Number(existente.valor))) <= 0.01
+    && normalizarTextoFinanceiro(nova.categoria) === normalizarTextoFinanceiro(existente.categoria)
+    && normalizarTextoFinanceiro(nova.descricao) === normalizarTextoFinanceiro(existente.descricao);
 }
 
 export function buildComissaoPendente(input: BuildComissaoPendenteInput): ComissaoPendenteInsert {
@@ -97,6 +130,39 @@ export async function registrarTransacaoComComissao({
   documentoId,
   gerarComissao = true,
 }: RegistrarTransacaoComComissaoInput): Promise<RegistrarTransacaoComComissaoResult> {
+  const { data: candidatas, error: consultaDuplicidadeError } = await supabase
+    .from("obra_transacoes_fluxo")
+    .select("id, user_id, tipo, valor, data, categoria, descricao")
+    .eq("user_id", transacao.user_id)
+    .eq("tipo", transacao.tipo)
+    .eq("data", transacao.data)
+    .is("deleted_at", null)
+    .limit(25);
+
+  if (consultaDuplicidadeError) {
+    return {
+      transacao: null,
+      comissao: null,
+      transacaoError: consultaDuplicidadeError,
+      comissaoError: null,
+    };
+  }
+
+  const transacaoDuplicada = (candidatas || []).find((candidata) => {
+    const existente = candidata as TransacaoComComissaoInsert & { id?: string };
+    return ehTransacaoDuplicada(transacao, existente);
+  }) as ({ id?: string } | undefined);
+
+  if (transacaoDuplicada?.id) {
+    return {
+      transacao: { id: transacaoDuplicada.id },
+      comissao: null,
+      transacaoError: null,
+      comissaoError: null,
+      transacaoDuplicada: true,
+    };
+  }
+
   const { data, error } = await supabase
     .from("obra_transacoes_fluxo")
     .insert(transacao)

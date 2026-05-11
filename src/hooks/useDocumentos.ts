@@ -289,7 +289,7 @@ export function useDocumentos() {
       "";
     const gerarComissao = dados.gerarComissao !== false;
 
-    const { transacao, transacaoError, comissao, comissaoError } = await registrarTransacaoComComissao({
+    const { transacao, transacaoError, comissao, comissaoError, transacaoDuplicada } = await registrarTransacaoComComissao({
       supabase,
       fornecedor,
       documentoId: docId,
@@ -316,6 +316,13 @@ export function useDocumentos() {
       return;
     }
 
+    if (transacaoDuplicada) {
+      await supabase.from("obra_movimentacoes_extraidas").update({ status_revisao: "aprovado", transacao_id: transacao.id } as any).eq("id", movId);
+      await registrarEvento(docId, "deduplicacao", "bloqueado", `Lançamento duplicado evitado. Movimentação vinculada à transação existente: ${transacao.id}`);
+      toast.info("Lançamento duplicado evitado; movimentação vinculada ao lançamento existente.");
+      return;
+    }
+
     if (tipoTransacao === "Saída" && valor > 0) {
       if (!gerarComissao) {
         await registrarEvento(docId, "comissao", "ignorada", "Despesa mantida nos gastos sem comissão por opção do usuário");
@@ -327,7 +334,7 @@ export function useDocumentos() {
       }
     }
 
-    await supabase.from("obra_movimentacoes_extraidas").update({ status_revisao: "aprovado" } as any).eq("id", movId);
+    await supabase.from("obra_movimentacoes_extraidas").update({ status_revisao: "aprovado", transacao_id: transacao.id } as any).eq("id", movId);
     await registrarEvento(docId, "lancamento", "sucesso", `Movimentação aprovada e lançada: R$ ${valor}`);
     toast.success("Lançamento criado!");
   };
