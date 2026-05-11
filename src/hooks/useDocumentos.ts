@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { buildComissaoPendente } from "@/lib/comissao";
+import { registrarTransacaoComComissao } from "@/lib/comissao";
 
 export interface DocumentoProcessado {
   id: string;
@@ -42,6 +42,7 @@ export interface MovimentacaoExtraida {
   status_revisao: string;
   transacao_id: string | null;
   created_at: string;
+  gerarComissao?: boolean;
 }
 
 export interface EventoProcessamento {
@@ -286,46 +287,42 @@ export function useDocumentos() {
       (typeof payload?.fornecedor_ou_origem === "string" && payload.fornecedor_ou_origem) ||
       (typeof payload?.fornecedor === "string" && payload.fornecedor) ||
       "";
+    const gerarComissao = dados.gerarComissao !== false;
 
-    // Create transaction
-    const { data: transacao, error } = await supabase.from("obra_transacoes_fluxo").insert({
-      user_id: user.id,
-      tipo: tipoTransacao,
-      valor,
-      data,
-      categoria,
-      descricao,
-      forma_pagamento: "",
-      recorrencia: "Única",
-      referencia: "",
-      conta_id: "",
-      observacoes: `Origem: IA_PASTA | Doc: ${docId}`,
-      origem_tipo: "ia_pasta",
-      origem_id: docId,
-    } as any).select("id").single();
+    const { transacao, transacaoError, comissao, comissaoError } = await registrarTransacaoComComissao({
+      supabase,
+      fornecedor,
+      documentoId: docId,
+      gerarComissao,
+      transacao: {
+        user_id: user.id,
+        tipo: tipoTransacao,
+        valor,
+        data,
+        categoria,
+        descricao,
+        forma_pagamento: "",
+        recorrencia: "Única",
+        referencia: "",
+        conta_id: "",
+        observacoes: `Origem: IA_PASTA | Doc: ${docId}${gerarComissao ? "" : " | Sem comissão por opção do usuário"}`,
+        origem_tipo: "ia_pasta",
+        origem_id: docId,
+      },
+    });
 
-    if (error || !transacao) {
-      toast.error("Erro ao criar transação: " + (error?.message || "transação não retornada"));
+    if (transacaoError || !transacao) {
+      toast.error("Erro ao criar transação: " + (transacaoError instanceof Error ? transacaoError.message : "transação não retornada"));
       return;
     }
 
     if (tipoTransacao === "Saída" && valor > 0) {
-      const comissao = buildComissaoPendente({
-        userId: user.id,
-        transacaoId: (transacao as { id: string }).id,
-        data,
-        valorBase: valor,
-        descricao,
-        categoria,
-        fornecedor,
-        formaPagamento: "",
-        documentoId: docId,
-      });
-      const { error: comissaoError } = await supabase.from("obra_comissao_pagamentos").insert(comissao as any);
-      if (comissaoError) {
-        await registrarEvento(docId, "comissao", "erro", `Falha ao criar comissão automática: ${comissaoError.message}`);
+      if (!gerarComissao) {
+        await registrarEvento(docId, "comissao", "ignorada", "Despesa mantida nos gastos sem comissão por opção do usuário");
+      } else if (comissaoError) {
+        await registrarEvento(docId, "comissao", "erro", `Falha ao criar comissão automática: ${comissaoError instanceof Error ? comissaoError.message : "erro desconhecido"}`);
         toast.warning("Lançamento criado, mas houve erro ao criar comissão automática");
-      } else {
+      } else if (comissao) {
         await registrarEvento(docId, "comissao", "sucesso", `Comissão automática de 8% criada: R$ ${comissao.valor}`);
       }
     }

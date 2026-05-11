@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { registrarTransacaoComComissao } from "@/lib/comissao";
 
 interface DadosExtraidos {
   valor: number;
@@ -28,6 +29,7 @@ export default function LeitorIAPage() {
   const [dados, setDados] = useState<DadosExtraidos | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [gerarComissao, setGerarComissao] = useState(true);
 
   const hasInput = !!(file || texto.trim());
 
@@ -133,29 +135,39 @@ export default function LeitorIAPage() {
     if (!dados || !user) return;
     setSaving(true);
 
-    const { error } = await supabase.from("obra_transacoes_fluxo").insert({
-      user_id: user.id,
-      tipo: "Saída",
-      valor: dados.valor,
-      data: dados.data || new Date().toISOString().split("T")[0],
-      categoria: dados.categoria || "Material",
-      descricao: dados.descricao || `${dados.tipo}: ${dados.fornecedor}`,
-      forma_pagamento: "",
-      recorrencia: "Única",
-      referencia: "",
-      conta_id: "",
-      observacoes: `Origem: IA | Fornecedor: ${dados.fornecedor}`,
-      origem_tipo: "ia",
-    } as any);
+    const { transacaoError, comissaoError } = await registrarTransacaoComComissao({
+      supabase,
+      fornecedor: dados.fornecedor,
+      gerarComissao,
+      transacao: {
+        user_id: user.id,
+        tipo: "Saída",
+        valor: dados.valor,
+        data: dados.data || new Date().toISOString().split("T")[0],
+        categoria: dados.categoria || "Material",
+        descricao: dados.descricao || `${dados.tipo}: ${dados.fornecedor}`,
+        forma_pagamento: "",
+        recorrencia: "Única",
+        referencia: "",
+        conta_id: "",
+        observacoes: `Origem: IA | Fornecedor: ${dados.fornecedor}${gerarComissao ? "" : " | Sem comissão por opção do usuário"}`,
+        origem_tipo: "ia",
+      },
+    });
 
     setSaving(false);
-    if (error) {
-      toast.error("Erro ao salvar: " + error.message);
+    if (transacaoError) {
+      toast.error("Erro ao salvar: " + (transacaoError instanceof Error ? transacaoError.message : "erro desconhecido"));
     } else {
-      toast.success("Transação salva com sucesso!");
+      if (gerarComissao && comissaoError) {
+        toast.warning("Transação salva, mas houve erro ao criar comissão automática");
+      } else {
+        toast.success(gerarComissao ? "Transação e comissão salvas com sucesso!" : "Transação salva apenas nos gastos!");
+      }
       setDados(null);
       setTexto("");
       setFile(null);
+      setGerarComissao(true);
     }
   };
 
@@ -246,6 +258,21 @@ export default function LeitorIAPage() {
                   )}
                 </div>
               ))}
+
+              <label className="flex items-start gap-3 rounded-lg border border-border/60 bg-secondary/30 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={gerarComissao}
+                  onChange={(e) => setGerarComissao(e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="font-medium">Gerar comissão automática de 8%</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Desmarque para salvar esta despesa apenas nos gastos.
+                  </span>
+                </span>
+              </label>
 
               <div className="flex gap-3 pt-2">
                 <Button
