@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency, formatDate, CATEGORIAS_PADRAO } from "@/lib/formatters";
-import { Plus, Search, Package, Truck, Clock, RefreshCw, CreditCard, Filter } from "lucide-react";
+import { Plus, Search, Package, Truck, Clock, RefreshCw, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,29 +132,14 @@ export default function ComprasPage() {
       conta_id: form.conta_id,
     } as any);
 
-    // For única and recorrente, create transaction immediately
-    if (!error && !isParcelada) {
-      await supabase.from("obra_transacoes_fluxo").insert({
-        user_id: user!.id,
-        tipo: "Saída",
-        valor,
-        data: form.data,
-        categoria: form.categoria,
-        descricao: isRecorrente ? `Assinatura: ${form.descricao || form.fornecedor}` : `Compra: ${form.descricao || form.fornecedor}`,
-        forma_pagamento: form.forma_pagamento,
-        recorrencia: isRecorrente ? form.periodicidade : "Única",
-        referencia: "",
-        conta_id: form.conta_id,
-        observacoes: `Fornecedor: ${form.fornecedor}`,
-        origem_tipo: "compra",
-      } as any);
-    }
+    // Compra registrada vira compromisso/conta a pagar. O fluxo de caixa é gerado no pagamento,
+    // evitando duplicidade entre cadastro da compra e registro do desembolso.
 
     setSaving(false);
     if (error) {
       toast.error("Erro: " + error.message);
     } else {
-      toast.success(isParcelada ? `Compra parcelada em ${numParcelas}x registrada!` : isRecorrente ? "Assinatura registrada!" : "Compra registrada!");
+      toast.success(isParcelada ? `Compra parcelada em ${numParcelas}x registrada para pagamento!` : isRecorrente ? "Assinatura registrada para pagamento!" : "Compra registrada para pagamento!");
       setShowForm(false);
       resetForm();
       fetchData();
@@ -185,7 +170,7 @@ export default function ComprasPage() {
 
   return (
     <div className="space-y-6 animate-slide-in">
-      <div className="flex items-center justify-between page-header">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between page-header">
         <div>
           <h1 className="text-2xl font-bold">Compras</h1>
           <p className="text-sm text-muted-foreground">Controle de aquisições, parcelamentos e assinaturas</p>
@@ -196,29 +181,29 @@ export default function ComprasPage() {
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { cls: "stat-card-info", icon: <Package className="w-4 h-4 text-info" />, label: "Total", value: formatCurrency(totalCompras) },
           { cls: "stat-card-success", icon: <Truck className="w-4 h-4 text-success" />, label: "Entregue", value: formatCurrency(totalEntregue), color: "text-success" },
           { cls: "stat-card-warning", icon: <Clock className="w-4 h-4 text-warning" />, label: "Pendente", value: formatCurrency(totalPendente), color: "text-warning" },
           { cls: "stat-card-info", icon: <CreditCard className="w-4 h-4 text-info" />, label: "Parcelas Pend.", value: formatCurrency(parcelasPendentes), color: "text-info" },
         ].map((m, i) => (
-          <div key={m.label} className={`${m.cls} p-4 animate-fade-in-up`} style={{ animationDelay: `${i * 100}ms` }}>
+          <div key={m.label} className={`${m.cls} p-4 animate-fade-in-up min-w-0`} style={{ animationDelay: `${i * 100}ms` }}>
             <div className="flex items-center gap-2 mb-1">{m.icon}<span className="text-xs text-muted-foreground uppercase">{m.label}</span></div>
-            <p className={`text-lg font-bold ${m.color || ""}`}>{m.value}</p>
+            <p className={`text-lg font-bold break-words ${m.color || ""}`}>{m.value}</p>
           </div>
         ))}
       </div>
 
       {/* Search + Filters */}
-      <div className="flex gap-3 items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Buscar compras..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0">
           {(["Todos", "Única", "Parcelada", "Recorrente"] as const).map(t => (
-            <Button key={t} size="sm" variant={filtroTipo === t ? "default" : "outline"} className="text-xs h-8" onClick={() => setFiltroTipo(t)}>
+            <Button key={t} size="sm" variant={filtroTipo === t ? "default" : "outline"} className="text-xs h-10 whitespace-nowrap" onClick={() => setFiltroTipo(t)}>
               {t === "Recorrente" && <RefreshCw className="w-3 h-3 mr-1" />}
               {t === "Parcelada" && <CreditCard className="w-3 h-3 mr-1" />}
               {t}
@@ -234,7 +219,33 @@ export default function ComprasPage() {
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-12">Nenhuma compra encontrada</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-3 p-3 md:hidden">
+            {filtered.map((c) => {
+              const parcelas = parseParcelas(c.parcelas);
+              const pagas = parcelas.filter(p => p.status === "Paga").length;
+              return (
+                <button key={c.id} type="button" onClick={() => setSelectedCompra(c)} className="w-full rounded-xl border border-border/60 bg-card/70 p-4 text-left active:scale-[0.99] transition">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{c.fornecedor || "Compra"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{formatDate(c.data)} · {c.categoria || "Sem categoria"}</p>
+                      {c.descricao && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{c.descricao}</p>}
+                    </div>
+                    <p className="shrink-0 font-bold text-sm">{formatCurrency(Number(c.valor_total))}</p>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Badge variant={c.tipo_compra === "Recorrente" ? "secondary" : c.tipo_compra === "Parcelada" ? "outline" : "default"} className="text-xs">
+                      {c.tipo_compra === "Recorrente" && <RefreshCw className="w-3 h-3 mr-1" />}
+                      {c.tipo_compra === "Parcelada" ? `${c.numero_parcelas}x (${pagas}/${parcelas.length})` : c.tipo_compra}
+                    </Badge>
+                    <span className={`${STATUS_COLORS[c.status_entrega] || "badge-muted"} text-xs`}>{c.status_entrega}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border/50">
@@ -295,6 +306,7 @@ export default function ComprasPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -317,9 +329,9 @@ export default function ComprasPage() {
             {/* Tipo */}
             <div>
               <Label className="text-xs text-muted-foreground">Tipo de Compra</Label>
-              <div className="flex gap-2 mt-1">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-2 mt-1">
                 {(["Única", "Parcelada", "Recorrente"] as TipoCompra[]).map(t => (
-                  <Button key={t} type="button" size="sm" variant={form.tipo_compra === t ? "default" : "outline"} className="flex-1 text-xs" onClick={() => setForm(f => ({ ...f, tipo_compra: t }))}>
+                  <Button key={t} type="button" size="sm" variant={form.tipo_compra === t ? "default" : "outline"} className="text-xs h-10" onClick={() => setForm(f => ({ ...f, tipo_compra: t }))}>
                     {t === "Recorrente" && <RefreshCw className="w-3 h-3 mr-1" />}
                     {t === "Parcelada" && <CreditCard className="w-3 h-3 mr-1" />}
                     {t}
@@ -333,10 +345,10 @@ export default function ComprasPage() {
               <Input value={form.fornecedor} onChange={e => setForm(f => ({ ...f, fornecedor: e.target.value }))} className="mt-1" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Valor Total (R$)</Label>
-                <Input type="number" step="0.01" value={form.valor_total} onChange={e => setForm(f => ({ ...f, valor_total: e.target.value }))} className="mt-1" />
+                <Input type="number" inputMode="decimal" step="0.01" value={form.valor_total} onChange={e => setForm(f => ({ ...f, valor_total: e.target.value }))} className="mt-1" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Data</Label>
@@ -369,7 +381,7 @@ export default function ComprasPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-muted-foreground">Categoria</Label>
                 <select value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1">
