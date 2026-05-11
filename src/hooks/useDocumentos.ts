@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { buildComissaoPendente } from "@/lib/comissao";
 
 export interface DocumentoProcessado {
   id: string;
@@ -274,14 +275,26 @@ export function useDocumentos() {
   const aprovarMovimentacao = async (movId: string, dados: Partial<MovimentacaoExtraida>, docId: string) => {
     if (!user) return;
 
+    const tipoTransacao = dados.tipo_movimentacao === "entrada" ? "Entrada" : "Saída";
+    const valor = dados.valor || 0;
+    const data = dados.data_movimentacao || new Date().toISOString().split("T")[0];
+    const categoria = dados.categoria_sugerida || "Outro";
+    const descricao = dados.descricao || "";
+    const documento = documentos.find((d) => d.id === docId);
+    const payload = documento?.payload_normalizado as Record<string, unknown> | null | undefined;
+    const fornecedor =
+      (typeof payload?.fornecedor_ou_origem === "string" && payload.fornecedor_ou_origem) ||
+      (typeof payload?.fornecedor === "string" && payload.fornecedor) ||
+      "";
+
     // Create transaction
-    const { error } = await supabase.from("obra_transacoes_fluxo").insert({
+    const { data: transacao, error } = await supabase.from("obra_transacoes_fluxo").insert({
       user_id: user.id,
-      tipo: dados.tipo_movimentacao === "entrada" ? "Entrada" : "Saída",
-      valor: dados.valor || 0,
-      data: dados.data_movimentacao || new Date().toISOString().split("T")[0],
-      categoria: dados.categoria_sugerida || "Outro",
-      descricao: dados.descricao || "",
+      tipo: tipoTransacao,
+      valor,
+      data,
+      categoria,
+      descricao,
       forma_pagamento: "",
       recorrencia: "Única",
       referencia: "",
@@ -289,15 +302,36 @@ export function useDocumentos() {
       observacoes: `Origem: IA_PASTA | Doc: ${docId}`,
       origem_tipo: "ia_pasta",
       origem_id: docId,
-    } as any);
+    } as any).select("id").single();
 
-    if (error) {
-      toast.error("Erro ao criar transação: " + error.message);
+    if (error || !transacao) {
+      toast.error("Erro ao criar transação: " + (error?.message || "transação não retornada"));
       return;
     }
 
+    if (tipoTransacao === "Saída" && valor > 0) {
+      const comissao = buildComissaoPendente({
+        userId: user.id,
+        transacaoId: (transacao as { id: string }).id,
+        data,
+        valorBase: valor,
+        descricao,
+        categoria,
+        fornecedor,
+        formaPagamento: "",
+        documentoId: docId,
+      });
+      const { error: comissaoError } = await supabase.from("obra_comissao_pagamentos").insert(comissao as any);
+      if (comissaoError) {
+        await registrarEvento(docId, "comissao", "erro", `Falha ao criar comissão automática: ${comissaoError.message}`);
+        toast.warning("Lançamento criado, mas houve erro ao criar comissão automática");
+      } else {
+        await registrarEvento(docId, "comissao", "sucesso", `Comissão automática de 8% criada: R$ ${comissao.valor}`);
+      }
+    }
+
     await supabase.from("obra_movimentacoes_extraidas").update({ status_revisao: "aprovado" } as any).eq("id", movId);
-    await registrarEvento(docId, "lancamento", "sucesso", `Movimentação aprovada e lançada: R$ ${dados.valor}`);
+    await registrarEvento(docId, "lancamento", "sucesso", `Movimentação aprovada e lançada: R$ ${valor}`);
     toast.success("Lançamento criado!");
   };
 
