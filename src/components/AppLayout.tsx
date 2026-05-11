@@ -22,17 +22,17 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/cronograma", label: "Cronograma", icon: Calendar },
-  { path: "/diario", label: "Diario de Obra", icon: ClipboardList },
-  { path: "/medicao", label: "Medicao", icon: Ruler },
+  { path: "/diario", label: "Diário de Obra", icon: ClipboardList },
+  { path: "/medicao", label: "Medição", icon: Ruler },
   { path: "/equipe", label: "Equipe", icon: Users },
   { path: "/fluxo", label: "Fluxo de Caixa", icon: ArrowLeftRight, allowedRoles: ["admin", "financeiro"] },
-  { path: "/contas", label: "Contas", icon: Wallet, allowedRoles: ["admin", "financeiro"] },
+  { path: "/contas", label: "Contas e Saldos", icon: Wallet, allowedRoles: ["admin", "financeiro"] },
   { path: "/compras", label: "Compras", icon: ShoppingCart, allowedRoles: ["admin", "financeiro"] },
   { path: "/notas-fiscais", label: "Notas Fiscais", icon: FileText, allowedRoles: ["admin", "financeiro"] },
   { path: "/previsao", label: "Previsão", icon: TrendingUp, allowedRoles: ["admin", "financeiro"] },
   { path: "/insights", label: "Insights", icon: Lightbulb },
   { path: "/leitor-ia", label: "Leitor IA", icon: FileText, allowedRoles: ["admin", "financeiro"] },
-  { path: "/pasta-sync", label: "Pasta Sync", icon: FolderSync, allowedRoles: ["admin", "financeiro"] },
+  { path: "/pasta-sync", label: "Documentos IA", icon: FolderSync, allowedRoles: ["admin", "financeiro"] },
   { path: "/conciliacao", label: "Conciliação", icon: Landmark, allowedRoles: ["admin", "financeiro"] },
   { path: "/comissao", label: "Comissão", icon: Percent, allowedRoles: ["admin", "construtor"] },
   { path: "/curva-abc", label: "Curva ABC", icon: PieChart, allowedRoles: ["admin", "financeiro"] },
@@ -63,7 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const currentPage = getPageLabel(location.pathname);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] overflow-hidden">
       {/* Sidebar desktop */}
       <aside className="hidden lg:flex flex-col w-64 bg-sidebar border-r border-sidebar-border">
         <div className="flex items-center gap-3 px-6 py-6 border-b border-sidebar-border">
@@ -72,7 +72,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h1 className="text-sm font-bold text-foreground tracking-wide">ObraFlow</h1>
-            <p className="text-[10px] text-muted-foreground">Gestao Inteligente</p>
+            <p className="text-[10px] text-muted-foreground">Gestão Inteligente</p>
           </div>
         </div>
 
@@ -111,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
-            <button onClick={() => setMobileOpen(!mobileOpen)} className="text-foreground p-1 lg:hidden">
+            <button onClick={() => setMobileOpen(!mobileOpen)} className="h-11 w-11 rounded-lg flex items-center justify-center text-foreground hover:bg-accent lg:hidden" aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}>
               {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <div className="flex items-center gap-2 lg:hidden">
@@ -134,8 +134,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
 
         {mobileOpen && (
-          <div className="lg:hidden absolute inset-0 z-50 bg-background/95 backdrop-blur-sm pt-14 animate-slide-in-left">
-            <nav className="px-4 py-4 space-y-1">
+          <div className="lg:hidden fixed inset-0 z-50 bg-background/95 backdrop-blur-sm pt-16 animate-slide-in-left">
+            <nav className="h-[calc(100dvh-4rem)] overflow-y-auto px-4 py-4 space-y-1 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
               {visibleItems.map((item, i) => {
                 const active = location.pathname === item.path;
                 return (

@@ -14,6 +14,7 @@ interface Parcela {
   valor: number;
   data_vencimento: string;
   status: string;
+  transacao_id?: string;
 }
 
 export interface CompraFull {
@@ -60,31 +61,30 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
   const pagas = parcelas.filter(p => p.status === "Paga").length;
 
   const handlePagarParcela = async (parcela: Parcela) => {
+    if (parcela.status === "Paga") {
+      toast.info("Esta parcela já está marcada como paga");
+      return;
+    }
+
     const gerarComissao = window.confirm(
       "Gerar comissão automática de 8% para esta parcela?\n\nOK = gerar comissão\nCancelar = registrar apenas nos gastos"
     );
 
-    // Update parcela status in the array
-    const updatedParcelas = parcelas.map(p =>
-      p.numero === parcela.numero ? { ...p, status: "Paga" } : p
-    );
-    const todasPagas = updatedParcelas.every(p => p.status === "Paga");
+    const referencia = `COMPRA-${compra.id}-PARCELA-${parcela.numero}`;
+    const { data: existente } = await supabase
+      .from("obra_transacoes_fluxo")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("referencia", referencia)
+      .is("deleted_at", null)
+      .maybeSingle();
 
-    const { error: errCompra } = await supabase
-      .from("obra_compras")
-      .update({
-        parcelas: updatedParcelas as any,
-        status_entrega: todasPagas ? "Entregue" : "Pedido",
-      })
-      .eq("id", compra.id);
-
-    if (errCompra) {
-      toast.error("Erro ao atualizar parcela");
+    if (existente?.id) {
+      toast.error("Esta parcela já possui lançamento no fluxo de caixa");
       return;
     }
 
-    // Create transaction and automatic commission for this installment
-    const { transacaoError, comissaoError } = await registrarTransacaoComComissao({
+    const { transacao, transacaoError, comissaoError } = await registrarTransacaoComComissao({
       supabase,
       fornecedor: compra.fornecedor,
       gerarComissao,
@@ -97,16 +97,38 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
         descricao: `Parcela ${parcela.numero}/${compra.numero_parcelas} - ${compra.descricao || compra.fornecedor}`,
         forma_pagamento: compra.forma_pagamento,
         recorrencia: "Única",
-        referencia: "",
+        referencia,
         conta_id: "",
         observacoes: `Fornecedor: ${compra.fornecedor}${gerarComissao ? "" : " | Sem comissão por opção do usuário"}`,
-        origem_tipo: "compra",
+        origem_tipo: "compra_parcela",
         origem_id: compra.id,
       },
     });
 
-    if (transacaoError) toast.error("Parcela paga mas erro ao criar transação");
-    else if (gerarComissao && comissaoError) toast.warning(`Parcela ${parcela.numero} paga, mas houve erro ao criar comissão automática`);
+    if (transacaoError) {
+      toast.error("Erro ao criar transação da parcela; nada foi marcado como pago");
+      return;
+    }
+
+    const updatedParcelas = parcelas.map(p =>
+      p.numero === parcela.numero ? { ...p, status: "Paga", transacao_id: transacao?.id } : p
+    );
+    const todasPagas = updatedParcelas.every(p => p.status === "Paga");
+
+    const { error: errCompra } = await supabase
+      .from("obra_compras")
+      .update({
+        parcelas: updatedParcelas as any,
+        status_entrega: todasPagas ? "Entregue" : "Pedido",
+      })
+      .eq("id", compra.id);
+
+    if (errCompra) {
+      toast.warning("Transação criada, mas houve erro ao atualizar a parcela. Revise a compra.");
+      return;
+    }
+
+    if (gerarComissao && comissaoError) toast.warning(`Parcela ${parcela.numero} paga, mas houve erro ao criar comissão automática`);
     else toast.success(gerarComissao ? `Parcela ${parcela.numero} paga com comissão!` : `Parcela ${parcela.numero} paga sem comissão!`);
     onRefresh();
   };
@@ -117,7 +139,7 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
 
   return (
     <Sheet open={open} onOpenChange={v => !v && onClose()}>
-      <SheetContent className="sm:max-w-lg bg-card border-border overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-lg bg-card border-border overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {compra.fornecedor || "Compra"}
@@ -166,7 +188,7 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
                   const isPaga = p.status === "Paga";
                   const isVencida = !isPaga && new Date(p.data_vencimento) < new Date();
                   return (
-                    <div key={p.numero} className={`flex items-center justify-between p-2.5 rounded-lg border ${isPaga ? "border-success/30 bg-success/5" : isVencida ? "border-destructive/30 bg-destructive/5" : "border-border bg-secondary/30"}`}>
+                    <div key={p.numero} className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border ${isPaga ? "border-success/30 bg-success/5" : isVencida ? "border-destructive/30 bg-destructive/5" : "border-border bg-secondary/30"}`}>
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-medium w-6 text-center text-muted-foreground">{p.numero}</span>
                         <div>
@@ -174,18 +196,18 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
                           <p className="text-xs text-muted-foreground">{formatDate(p.data_vencimento)}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 sm:justify-end">
                         {isPaga ? (
                           <Badge className="bg-success/20 text-success border-0 text-xs"><Check className="w-3 h-3 mr-1" />Paga</Badge>
                         ) : isVencida ? (
                           <>
                             <Badge variant="destructive" className="text-xs"><AlertCircle className="w-3 h-3 mr-1" />Vencida</Badge>
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handlePagarParcela(p)}>
+                            <Button size="sm" variant="outline" className="h-10 text-xs flex-1 sm:flex-none" onClick={() => handlePagarParcela(p)}>
                               <CreditCard className="w-3 h-3 mr-1" />Pagar
                             </Button>
                           </>
                         ) : (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handlePagarParcela(p)}>
+                          <Button size="sm" variant="outline" className="h-10 text-xs flex-1 sm:flex-none" onClick={() => handlePagarParcela(p)}>
                             <CreditCard className="w-3 h-3 mr-1" />Pagar
                           </Button>
                         )}

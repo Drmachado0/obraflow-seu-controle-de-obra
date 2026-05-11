@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/formatters";
 import { toast } from "sonner";
 import { Upload, Loader2, CreditCard, Wallet, Receipt } from "lucide-react";
-import { registrarTransacaoComComissao } from "@/lib/comissao";
+import { PERCENTUAL_COMISSAO_CONSTRUTOR, registrarTransacaoComComissao } from "@/lib/comissao";
 
 interface PagamentoDialogProps {
   open: boolean;
@@ -60,7 +60,8 @@ export default function PagamentoDialog({
       });
   }, [open, userId]);
 
-  const comissaoValor = valor * 0.08;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const comissaoValor = valor * (PERCENTUAL_COMISSAO_CONSTRUTOR / 100);
 
   const handleConfirmar = async () => {
     if (!contaId) {
@@ -95,7 +96,6 @@ export default function PagamentoDialog({
               categoria,
               valor,
               forma_pagamento: metodo,
-              metodo_pagamento: metodo,
               observacoes: `Fornecedor: ${fornecedor}`,
             },
             p_comissao: {
@@ -107,6 +107,17 @@ export default function PagamentoDialog({
           });
           if (error) throw error;
         } else {
+          const referencia = `NF-${id}`;
+          const { data: existente } = await supabase
+            .from("obra_transacoes_fluxo")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("referencia", referencia)
+            .is("deleted_at", null)
+            .maybeSingle();
+
+          if (existente?.id) throw new Error("Esta nota fiscal já possui lançamento no fluxo de caixa");
+
           const { transacaoError } = await registrarTransacaoComComissao({
             supabase,
             fornecedor,
@@ -115,14 +126,13 @@ export default function PagamentoDialog({
               user_id: userId,
               tipo: "Saída",
               valor,
-              data: new Date().toISOString(),
+              data: hoje,
               categoria,
               descricao: `NF ${descricao || fornecedor}`,
               forma_pagamento: metodo,
               conta_id: contaId,
               recorrencia: "Única",
-              referencia: `NF-${id}`,
-              metodo_pagamento: metodo,
+              referencia,
               observacoes: `Fornecedor: ${fornecedor} | Sem comissão por opção do usuário`,
               origem_tipo: "nf",
               origem_id: id,
@@ -131,11 +141,22 @@ export default function PagamentoDialog({
           if (transacaoError) throw transacaoError;
           await supabase
             .from("obra_notas_fiscais")
-            .update({ status: "paga", forma_pagamento: metodo })
+            .update({ status: "Paga", forma_pagamento: metodo })
             .eq("id", id);
         }
       } else {
-        // For compras: create transaction and automatic commission directly
+        // Para compras, o caixa nasce no pagamento (não no cadastro), com idempotência por referência.
+        const referencia = `COMPRA-${id}`;
+        const { data: existente } = await supabase
+          .from("obra_transacoes_fluxo")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("referencia", referencia)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (existente?.id) throw new Error("Esta compra já possui lançamento no fluxo de caixa");
+
         const { transacaoError, comissaoError } = await registrarTransacaoComComissao({
           supabase,
           fornecedor,
@@ -144,14 +165,13 @@ export default function PagamentoDialog({
             user_id: userId,
             tipo: "Saída",
             valor,
-            data: new Date().toISOString(),
+            data: hoje,
             categoria,
             descricao: `Compra - ${descricao || fornecedor}`,
             forma_pagamento: metodo,
             conta_id: contaId,
             recorrencia: "Única",
-            referencia: `COMPRA-${id}`,
-            metodo_pagamento: metodo,
+            referencia,
             observacoes: `Fornecedor: ${fornecedor}${gerarComissao ? "" : " | Sem comissão por opção do usuário"}`,
             origem_tipo: "compra",
             origem_id: id,
@@ -185,7 +205,7 @@ export default function PagamentoDialog({
             fornecedor_ou_origem: fornecedor,
             valor_total: valor,
             descricao: `Recibo de pagamento - ${descricao || fornecedor}`,
-            data_documento: new Date().toISOString().slice(0, 10),
+            data_documento: hoje,
             categoria,
             metodo_pagamento: metodo,
           },
@@ -221,10 +241,10 @@ export default function PagamentoDialog({
 
         <div className="space-y-4">
           {/* Summary */}
-          <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-1.5">
-            <div className="flex justify-between text-sm">
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-1.5 min-w-0">
+            <div className="flex flex-col gap-0.5 sm:flex-row sm:justify-between text-sm">
               <span className="text-muted-foreground">Fornecedor</span>
-              <span className="font-medium">{fornecedor}</span>
+              <span className="font-medium break-words sm:text-right">{fornecedor}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Valor</span>
@@ -314,11 +334,11 @@ export default function PagamentoDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={onClose} disabled={loading} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button onClick={handleConfirmar} disabled={loading}>
+          <Button onClick={handleConfirmar} disabled={loading} className="w-full sm:w-auto">
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CreditCard className="w-4 h-4 mr-1" />}
             Confirmar Pagamento
           </Button>
