@@ -7,6 +7,7 @@ import { Check, RefreshCw, CreditCard, AlertCircle, DollarSign } from "lucide-re
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import PagamentoDialog from "@/components/PagamentoDialog";
+import { registrarTransacaoComComissao } from "@/lib/comissao";
 
 interface Parcela {
   numero: number;
@@ -59,6 +60,10 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
   const pagas = parcelas.filter(p => p.status === "Paga").length;
 
   const handlePagarParcela = async (parcela: Parcela) => {
+    const gerarComissao = window.confirm(
+      "Gerar comissão automática de 8% para esta parcela?\n\nOK = gerar comissão\nCancelar = registrar apenas nos gastos"
+    );
+
     // Update parcela status in the array
     const updatedParcelas = parcelas.map(p =>
       p.numero === parcela.numero ? { ...p, status: "Paga" } : p
@@ -78,25 +83,31 @@ export default function CompraDetailDrawer({ compra, open, onClose, onRefresh, u
       return;
     }
 
-    // Create transaction for this installment
-    const { error: errTx } = await supabase.from("obra_transacoes_fluxo").insert({
-      user_id: userId,
-      tipo: "Saída",
-      valor: parcela.valor,
-      data: parcela.data_vencimento,
-      categoria: compra.categoria,
-      descricao: `Parcela ${parcela.numero}/${compra.numero_parcelas} - ${compra.descricao || compra.fornecedor}`,
-      forma_pagamento: compra.forma_pagamento,
-      recorrencia: "Única",
-      referencia: "",
-      conta_id: "",
-      observacoes: `Fornecedor: ${compra.fornecedor}`,
-      origem_tipo: "compra",
-      origem_id: compra.id,
-    } as any);
+    // Create transaction and automatic commission for this installment
+    const { transacaoError, comissaoError } = await registrarTransacaoComComissao({
+      supabase,
+      fornecedor: compra.fornecedor,
+      gerarComissao,
+      transacao: {
+        user_id: userId,
+        tipo: "Saída",
+        valor: parcela.valor,
+        data: parcela.data_vencimento,
+        categoria: compra.categoria,
+        descricao: `Parcela ${parcela.numero}/${compra.numero_parcelas} - ${compra.descricao || compra.fornecedor}`,
+        forma_pagamento: compra.forma_pagamento,
+        recorrencia: "Única",
+        referencia: "",
+        conta_id: "",
+        observacoes: `Fornecedor: ${compra.fornecedor}${gerarComissao ? "" : " | Sem comissão por opção do usuário"}`,
+        origem_tipo: "compra",
+        origem_id: compra.id,
+      },
+    });
 
-    if (errTx) toast.error("Parcela paga mas erro ao criar transação");
-    else toast.success(`Parcela ${parcela.numero} paga!`);
+    if (transacaoError) toast.error("Parcela paga mas erro ao criar transação");
+    else if (gerarComissao && comissaoError) toast.warning(`Parcela ${parcela.numero} paga, mas houve erro ao criar comissão automática`);
+    else toast.success(gerarComissao ? `Parcela ${parcela.numero} paga com comissão!` : `Parcela ${parcela.numero} paga sem comissão!`);
     onRefresh();
   };
 

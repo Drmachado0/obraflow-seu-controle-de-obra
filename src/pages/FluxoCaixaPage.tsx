@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import OrigemBadge from "@/components/OrigemBadge";
 import TransacaoDetailDrawer, { type TransacaoFull } from "@/components/TransacaoDetailDrawer";
+import { registrarTransacaoComComissao } from "@/lib/comissao";
 
 const CATEGORIAS = CATEGORIAS_PADRAO;
 
@@ -51,6 +52,7 @@ export default function FluxoCaixaPage() {
     forma_pagamento: "PIX",
     observacoes: "",
     conta_id: "",
+    gerar_comissao: true,
   });
 
   const fetchData = useCallback(async () => {
@@ -102,26 +104,34 @@ export default function FluxoCaixaPage() {
     }
     setValorError("");
     setSaving(true);
-    const { error } = await supabase.from("obra_transacoes_fluxo").insert({
-      user_id: user!.id,
-      tipo: form.tipo,
-      valor: Number(form.valor),
-      data: form.data,
-      categoria: form.categoria,
-      descricao: form.descricao,
-      forma_pagamento: form.forma_pagamento,
-      observacoes: form.observacoes,
-      recorrencia: "Única",
-      referencia: "",
-      conta_id: form.conta_id,
-    } as any);
+    const { transacaoError, comissaoError } = await registrarTransacaoComComissao({
+      supabase,
+      gerarComissao: form.tipo === "Saída" ? form.gerar_comissao : false,
+      transacao: {
+        user_id: user!.id,
+        tipo: form.tipo,
+        valor: Number(form.valor),
+        data: form.data,
+        categoria: form.categoria,
+        descricao: form.descricao,
+        forma_pagamento: form.forma_pagamento,
+        observacoes: form.observacoes,
+        recorrencia: "Única",
+        referencia: "",
+        conta_id: form.conta_id,
+      },
+    });
     setSaving(false);
-    if (error) {
-      toast.error("Erro ao salvar: " + error.message);
+    if (transacaoError) {
+      toast.error("Erro ao salvar: " + (transacaoError instanceof Error ? transacaoError.message : "erro desconhecido"));
     } else {
-      toast.success("Transação registrada!");
+      if (comissaoError) {
+        toast.warning("Transação registrada, mas houve erro ao criar comissão automática");
+      } else {
+        toast.success(form.tipo === "Saída" && form.gerar_comissao ? "Transação e comissão registradas!" : "Transação registrada nos gastos!");
+      }
       setShowForm(false);
-      setForm({ tipo: "Saída", valor: "", data: new Date().toISOString().split("T")[0], categoria: "Material", descricao: "", forma_pagamento: "PIX", observacoes: "", conta_id: "" });
+      setForm({ tipo: "Saída", valor: "", data: new Date().toISOString().split("T")[0], categoria: "Material", descricao: "", forma_pagamento: "PIX", observacoes: "", conta_id: "", gerar_comissao: true });
       fetchData();
     }
   };
@@ -345,6 +355,22 @@ export default function FluxoCaixaPage() {
               <Label className="text-xs text-muted-foreground">Observações</Label>
               <Textarea value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} rows={2} className="mt-1" />
             </div>
+            {form.tipo === "Saída" && (
+              <label className="flex items-start gap-3 rounded-lg border border-border/60 bg-secondary/30 p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.gerar_comissao}
+                  onChange={e => setForm(f => ({ ...f, gerar_comissao: e.target.checked }))}
+                  className="mt-1 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="font-medium">Gerar comissão automática de 8%</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Desmarque para manter esta saída apenas nos gastos, sem entrar na comissão do construtor.
+                  </span>
+                </span>
+              </label>
+            )}
             <Button type="submit" disabled={saving} className="w-full">
               {saving ? "Salvando..." : "Registrar Transação"}
             </Button>
